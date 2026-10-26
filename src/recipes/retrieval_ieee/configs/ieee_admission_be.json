@@ -1,0 +1,12 @@
+{
+  "training": {
+    "epochs": null,
+    "lr": null,
+    "weight_decay": null,
+    "grad_clip": null,
+    "eval_every_epochs": null,
+    "seed": null,
+    "batch_size": null,
+    "accumulation": null
+  }
+}

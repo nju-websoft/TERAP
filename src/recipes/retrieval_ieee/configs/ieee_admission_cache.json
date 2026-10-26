@@ -1,0 +1,24 @@
+{
+  "training": {
+    "shard": null,
+    "batch_size": null
+  },
+  "inputs": {
+    "admission": {
+      "ieee": {
+        "training": {
+          "be_k": null,
+          "ce_k": null,
+          "slots": null,
+          "max_paths": null
+        },
+        "inference": {
+          "be_k": null,
+          "ce_k": null,
+          "slots": null,
+          "max_paths": null
+        }
+      }
+    }
+  }
+}

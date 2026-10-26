@@ -1,0 +1,44 @@
+{
+  "training": {
+    "width": null,
+    "depth": null,
+    "switch": null,
+    "steps": null,
+    "weak_start": null,
+    "eval_every": null,
+    "micro": null,
+    "chunk": null,
+    "projection_start": null,
+    "heads": null,
+    "attn_scale": null,
+    "head_lr": null,
+    "encoder_lr": null,
+    "projection_lr": null,
+    "optimizer": null,
+    "schedule": null,
+    "weight_decay": null,
+    "batch_size": null,
+    "grad_clip": null,
+    "warmup_fraction": null,
+    "min_lr_factor": null,
+    "seed": null
+  },
+  "inputs": {
+    "admission": {
+      "ieee": {
+        "training": {
+          "be_k": null,
+          "ce_k": null,
+          "slots": null,
+          "max_paths": null
+        },
+        "inference": {
+          "be_k": null,
+          "ce_k": null,
+          "slots": null,
+          "max_paths": null
+        }
+      }
+    }
+  }
+}

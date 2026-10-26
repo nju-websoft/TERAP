@@ -1,0 +1,19 @@
+{
+  "training": {
+    "width": null,
+    "depth": null,
+    "switch": null,
+    "steps": null,
+    "weak_start": null,
+    "eval_every": null,
+    "micro": null,
+    "chunk": null,
+    "head_lr": null,
+    "encoder_lr": null,
+    "projection_lr": null,
+    "weight_decay": null,
+    "batch_size": null,
+    "grad_clip": null,
+    "seed": null
+  }
+}

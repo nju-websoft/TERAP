@@ -1,0 +1,14 @@
+{
+  "training": {
+    "micro": null,
+    "lr": null,
+    "epochs": null,
+    "weight_decay": null,
+    "batch_size": null,
+    "grad_clip": null,
+    "warmup_fraction": null,
+    "eval_every_epochs": null,
+    "hard_pool_k": null,
+    "seed": null
+  }
+}

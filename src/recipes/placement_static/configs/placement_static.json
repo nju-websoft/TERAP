@@ -1,0 +1,36 @@
+{
+  "training": {
+    "lr": null,
+    "epochs": null,
+    "schedule": null,
+    "wd": null,
+    "optimizer": null,
+    "warmup": null,
+    "min_lr_factor": null,
+    "beta2": null,
+    "momentum": null,
+    "dropout": null,
+    "batch_size": null,
+    "grad_clip": null,
+    "eval_every": null,
+    "seed": null
+  },
+  "inputs": {
+    "placement": {
+      "ieee_static": {
+        "training": {
+          "be_k": null,
+          "ce_k": null,
+          "slots": null,
+          "max_paths": null
+        },
+        "inference": {
+          "be_k": null,
+          "ce_k": null,
+          "slots": null,
+          "max_paths": null
+        }
+      }
+    }
+  }
+}

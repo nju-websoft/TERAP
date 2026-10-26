@@ -1,0 +1,13 @@
+{
+  "training": {
+    "lr": null,
+    "weight_decay": null,
+    "grad_clip": null,
+    "epochs": null,
+    "eval_every_epochs": null,
+    "seed": null,
+    "micro": null,
+    "warmup_fraction": null,
+    "hard_pool_k": null
+  }
+}
