@@ -85,20 +85,45 @@ python -m src.train ieee_ce --config work/configs/ieee_ce.json
 
 ## Repository layout
 
+The repository contains the following files and directories (dataset contents and recipe internals are omitted):
+
 ```text
-src/
-├── admission.py, placement.py, placement_ieee.py  # Models
-├── encoder.py, retrieval.py, memory.py           # Shared components
-├── data.py, pipeline.py, evaluation.py           # Inputs and prediction APIs
-├── workflow.py                                  # Raw data preparation and final evaluation
-├── run.py                                       # Ordered workflow commands
-├── train.py, configuration.py, settings.py      # Training launcher and settings
-└── recipes/                                     # Task implementations and config templates
-work/                                            # Generated; not distributed
-├── configs/
-├── <implementation>/                            # Tokens, caches and selected checkpoints
-└── results/
+TERAP/
+├── .gitignore
+├── LICENSE
+├── README.md
+├── requirements.txt
+├── dataset.tar.xz                # Optional archive of dataset/
+├── dataset/
+│   ├── README.md
+│   ├── TaxoAP-MeSH/
+│   ├── TaxoAP-IEEE/
+│   ├── QEN-MeSH/
+│   └── IEEE-static/
+├── src/
+│   ├── __init__.py
+│   ├── admission.py              # Admission models
+│   ├── placement.py              # Placement model
+│   ├── placement_ieee.py         # IEEE Placement model
+│   ├── encoder.py
+│   ├── retrieval.py
+│   ├── memory.py
+│   ├── optimizers.py
+│   ├── data.py
+│   ├── pipeline.py
+│   ├── evaluation.py
+│   ├── configuration.py
+│   ├── settings.py
+│   ├── train.py                  # Training launcher
+│   ├── workflow.py               # Data preparation and final evaluation
+│   ├── run.py                    # Full workflow runner
+│   └── recipes/                  # Task implementations and per-task configs
+└── tests/
+    ├── make_fixture.py
+    └── run_fixture.py
 ```
+
+Config templates are stored under `src/recipes/<implementation>/configs/`. Running the setup and workflow creates `models/bert/` for downloaded weights and `work/` for editable configs, prepared data, checkpoints and `results/`. These generated directories are ignored by Git and are not included in the repository.
 
 Training preserves each recipe's loss and sampling rules, runs for configured steps/epochs, and selects checkpoints using validation. Test is not evaluated in training validation loops. Retrieval may export final test candidates after selecting a checkpoint. No experiment dashboard, ablation variants, pretrained weights or trained checkpoints are included.
 
