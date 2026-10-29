@@ -103,6 +103,6 @@ print(sample_id(row), row["query"])
 print(row["gold"])
 ```
 
-Use `Corpus` with a compatible tokenizer for tokenization and graph indexing. Consult the root [README](../README.md) for model dependencies, recipe configuration, and cache requirements. Keep validation and test examples out of gradient training, and rebuild derived caches when changing retrieval or memory settings.
+Use `Corpus` with a compatible tokenizer for tokenization and graph indexing. The root [README](../README.md) provides the complete download, configuration, preparation, training and evaluation commands. `python -m src.run --dataset <name>` builds the required caches from these files before invoking the existing recipes. Keep validation and test examples out of gradient training, and rebuild derived caches when changing retrieval or memory settings.
 
 The release includes raw split files and taxonomy graphs. It does not include manifests, separate metadata files, tokenized copies, pretrained weights, or trained checkpoints.

@@ -31,9 +31,10 @@ def main():
     optimstep = 0
     rows = {s: read(DATA / f'{s}.json') for s in ['train', 'valid', 'test']}
     train = rows['train']
-    qt = {y: np.load(SRC / f'{y}_tokens.npy') for y in range(2016, 2027)}
-    pt = {y: np.load(GRAPH / f'{y - 1}_tokens.npy') for y in range(2016, 2027)}
-    graphs = {y: read(GRAPH / f'{y - 1}_index.json') for y in range(2016, 2027)}
+    years = sorted({r['year'] for rr in rows.values() for r in rr})
+    qt = {y: np.load(SRC / f'{y}_tokens.npy') for y in years}
+    pt = {y: np.load(GRAPH / f'{y - 1}_tokens.npy') for y in years}
+    graphs = {y: read(GRAPH / f'{y - 1}_index.json') for y in years}
     freq = collections.Counter(((r['year'], r['target']) for r in train))
     edges = [(i, p, 1 / (len(r['gold_indices']) * freq[r['year'], r['target']])) for (i, r) in enumerate(train) for p in r['gold_indices']]
     scale = len(edges) / sum((e[2] for e in edges))

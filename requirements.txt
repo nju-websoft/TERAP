@@ -1,5 +1,5 @@
-torch>=2.9
-transformers>=4.45
-numpy>=2.0
-scikit-learn>=1.4
-
+torch>=2.9,<3
+transformers>=4.45,<6
+numpy>=2.0,<3
+scikit-learn>=1.4,<2
+huggingface-hub>=0.26,<2

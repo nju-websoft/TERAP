@@ -1,154 +1,115 @@
 # TERAP
 
-Anonymous research code for taxonomy admission and placement.
+Research code for taxonomy Admission and Placement. Admission combines a query-only classifier with a taxonomy-memory classifier; Placement retrieves and reranks parent candidates using path memory. The release includes the core models, original task training objectives, dataset preparation, and final evaluation.
 
-This repository provides the core models, task-specific training recipes, and inference and evaluation utilities. **Admission** decides whether a proposed concept should enter a taxonomy. **Placement** ranks its possible parent concepts. The implementation includes bi-encoder (BE) retrieval, cross-encoder (CE) reranking, query-only admission, and taxonomy-memory models.
+## Setup
 
-## Repository structure
+Use Python 3.11 and a CUDA-enabled PyTorch installation on a Linux machine with one visible NVIDIA GPU. Training uses BF16; use a BF16-capable GPU. Preparation and evaluation also accept `--device cpu`, but full training requires CUDA. Model weights, features and checkpoints require additional disk space beyond the dataset; memory requirements depend on the configured candidate counts and batch sizes.
 
-```text
-.
-├── README.md
-├── requirements.txt
-├── dataset.tar.xz
-├── dataset/                  # Dataset files included in the repository
-│   ├── README.md
-│   ├── TaxoAP-MeSH/
-│   ├── TaxoAP-IEEE/
-│   ├── QEN-MeSH/
-│   └── IEEE-static/
-└── src/
-    ├── admission.py          # Admission heads and models
-    ├── placement.py          # Placement models
-    ├── placement_ieee.py     # IEEE Placement model components
-    ├── encoder.py
-    ├── retrieval.py          # BE and CE components
-    ├── memory.py             # Taxonomy-path memory construction
-    ├── data.py               # Dataset loading and tokenization
-    ├── pipeline.py           # Input preparation and prediction
-    ├── evaluation.py         # Admission and Placement metrics
-    ├── configuration.py      # Per-task configuration loading
-    ├── settings.py           # Model settings and candidate text styles
-    ├── train.py              # Training launcher
-    └── recipes/              # Task implementations and their configs/
-```
-
-## Installation and data
-
-Run commands from the repository root in a Python environment compatible with the dependencies:
+From the repository root:
 
 ```bash
 python -m pip install -r requirements.txt
+export CUDA_VISIBLE_DEVICES=0
+python -c "import torch; print(torch.__version__); assert torch.cuda.is_available(); assert torch.cuda.is_bf16_supported()"
 ```
 
-The dataset files are included directly in `dataset/` and can be used without extraction. Since this folder is relatively large (about 250 MiB), you can alternatively download [dataset.tar.xz](dataset.tar.xz) (about 22 MiB) and extract it locally. This optional archive contains the same files and can save download time when you only need the data. From the repository root, run:
+The four datasets are included in `dataset/`. Alternatively, download [dataset.tar.xz](dataset.tar.xz) (about 22 MiB) instead of the approximately 250 MiB directory, then run `tar -xJf dataset.tar.xz`. This is an optional faster download of the same data. See [dataset/README.md](dataset/README.md) for fields and splits.
+
+Download the 768-dimensional [BERT-base uncased](https://huggingface.co/google-bert/bert-base-uncased) model and tokenizer once:
 
 ```bash
-tar -xJf dataset.tar.xz
+HF_ENDPOINT=https://hf-mirror.com python -m src.workflow download
 ```
 
-The archive uses XZ compression with a 16 MiB dictionary. The dictionary is embedded in the compression format; no external dictionary file is needed. On Windows, an XZ-capable archive utility can extract the `.xz` layer and then the `.tar` archive.
+Omit `HF_ENDPOINT` to download directly from Hugging Face. Files are stored in `models/bert/`; subsequent preparation, training and evaluation load them locally. On an offline server, run the download on another machine and copy this directory together with the repository.
 
-See [dataset/README.md](dataset/README.md) for split sizes, fields, and text inputs. The archive contains source data only. Pretrained weights, trained checkpoints, and generated token/feature caches are not included.
+## Run the full workflow
 
-Place compatible BERT weights and tokenizer files in `models/bert/`, or override the relevant recipe paths. The launcher defaults to offline model loading; download the required model files before running it. Training recipes use CUDA.
+Generate editable starting configurations:
 
-## Configuration
+```bash
+python -m src.workflow init-configs
+```
 
-Each task has its own JSON file:
+This creates one JSON per task under `work/configs/`. These are **suggested starting parameters, not the settings used to produce the paper's reported results**. They use AdamW, seed 42, retrieval learning rate `1e-5`, downstream head learning rate `1e-4`, and validation-based checkpoint selection. The original unfilled templates remain beside each recipe. Change the generated task files before starting if needed; `init-configs` refuses to overwrite existing configurations.
+
+Run one dataset, or all four:
+
+```bash
+# Optional: inspect the exact commands and their numbering.
+python -m src.run --dataset mesh --plan
+
+# MeSH Admission + Placement, including all preparation and evaluation.
+python -m src.run --dataset mesh
+
+# Alternatively, run all tasks in a fresh working directory.
+# python -m src.run --dataset all
+```
+
+Accepted dataset names are `mesh`, `ieee`, `qmesh`, and `static`. `mesh` and `ieee` run both Admission and Placement; the static datasets run Placement. QEN-MeSH first prepares and trains its dedicated path encoder using MeSH Admission with its held-out concepts and aliases excluded. A single invocation with `--dataset all` shares prerequisite stages instead of repeating them.
+
+The runner invokes the existing training recipes in this order:
+
+1. Tokenize the raw data and construct graph indexes.
+2. Train BE, mine candidates, and train CE. IEEE Admission uses its own historical-graph retriever.
+3. Prepare Admission tokens, frozen initial features and natural path memory; train the two cascade branches where applicable.
+4. Prepare Placement CE features and path features; train the Placement model. MeSH and QEN-MeSH use their fine-tuned path encoders; IEEE variants use base BERT path features.
+5. Load validation-selected checkpoints, evaluate held-out data, and write metrics and predictions.
+
+Final outputs are in `work/results/`: `<dataset>_admission.json` and/or `<dataset>_placement.json`, with sibling `.predictions.jsonl` files containing sample IDs and scores or rankings. Admission thresholds are fitted on validation and transferred unchanged to test. Placement metrics average queries within each target before averaging targets. The two tasks have different eligible examples; their predictions can be joined by ID for shared samples, but the supplied splits are not a one-to-one cascade benchmark.
+
+The runner stops on an error. Fix the reported cause and use the numbered plan to continue, for example `python -m src.run --dataset mesh --start-at 5`. Keep the same configs and completed artifacts when continuing. For a separate run, set `RELEASE_WORK` to a new directory **before** generating its configurations:
+
+```bash
+export RELEASE_WORK="$PWD/work_second_run"
+python -m src.workflow init-configs
+python -m src.run --dataset static
+```
+
+## Configuration and individual stages
+
+Each training task has a separate config. `training` controls learning rates, optimizer, batch sizes, steps/epochs and validation intervals. `inputs` separates training and inference candidate/memory sizes. The starting configs use BE top-256, CE top-32, and 32 memory slots in both phases. Require `ce_k <= be_k` and `max_paths <= slots`; rebuild caches when changing input sizes, tokenizer or upstream checkpoints. The retrieval recipes retain their own validation ranking cutoffs, independent of downstream memory sizes.
+
+Admission `switch` and IEEE `projection_start` are zero-based update indices; the starting configs use zero to produce fine-tuned encoders for downstream path encoding. `eval_every` counts optimizer steps and `eval_every_epochs` counts epochs. MeSH BE and CE must share seed and epoch count because the CE recipe locates its BE checkpoint by those values. Use validation to tune parameters.
+
+You can execute any command printed by `--plan` separately. For example:
+
+```bash
+python -m src.workflow retrieval-data --dataset ieee
+python -m src.train ieee_be --config work/configs/ieee_be.json
+python -m src.train ieee_ce --config work/configs/ieee_ce.json
+```
+
+`python -m src.workflow --help` lists preparation and evaluation stages. `--be`, `--ce`, `--path-checkpoint` and the final checkpoint arguments select trained weights explicitly. `--batch-size` controls preparation/evaluation batching, independently of recipe training batch sizes. Training may still need a smaller `micro` or `chunk` when GPU memory is limited. Placement currently loads its prepared feature banks into GPU memory.
+
+## Repository layout
 
 ```text
-src/recipes/<implementation>/configs/<recipe>.json
+src/
+├── admission.py, placement.py, placement_ieee.py  # Models
+├── encoder.py, retrieval.py, memory.py           # Shared components
+├── data.py, pipeline.py, evaluation.py           # Inputs and prediction APIs
+├── workflow.py                                  # Raw data preparation and final evaluation
+├── run.py                                       # Ordered workflow commands
+├── train.py, configuration.py, settings.py      # Training launcher and settings
+└── recipes/                                     # Task implementations and config templates
+work/                                            # Generated; not distributed
+├── configs/
+├── <implementation>/                            # Tokens, caches and selected checkpoints
+└── results/
 ```
 
-**Configuration values are intentionally `null`. Fill the selected task's configuration before running it.** These files are templates, not ready-to-run experiment presets. The launcher rejects unfilled training fields. Architecture and objective definitions also reside in the model and recipe code.
+Training preserves each recipe's loss and sampling rules, runs for configured steps/epochs, and selects checkpoints using validation. Test is not evaluated in training validation loops. Retrieval may export final test candidates after selecting a checkpoint. No experiment dashboard, ablation variants, pretrained weights or trained checkpoints are included.
 
-The `training` section holds the settings relevant to that task, such as learning rates, optimizer, seed, batch size, steps or epochs, and validation frequency. `eval_every` counts optimizer steps; `eval_every_epochs`, where present, counts epochs. IEEE Admission's `projection_start` is a zero-based optimizer step, independent of the BERT unfreezing step `switch`.
+## Small integration test
 
-For memory-based tasks, `inputs` contains separate `training` and `inference` sections:
-
-| Field | Meaning |
-| --- | --- |
-| `be_k` | Number of BE candidates passed to CE reranking |
-| `ce_k` | Number of reranked candidates retained downstream |
-| `max_paths` | Maximum number of active memory paths |
-| `slots` | Padded memory width |
-
-Require `ce_k <= be_k` and `max_paths <= slots`. Fill both phases before using both training and inference. Changing training retrieval or memory sizes requires regenerating the affected caches; the launcher does not rebuild them.
-
-## Training recipes
-
-| Component | Recipe names | Implementation directory |
-| --- | --- | --- |
-| MeSH Admission | `mesh_query`, `mesh_memory` | `mesh_query`, `mesh_memory` |
-| IEEE Admission | `ieee_query`, `ieee_memory` | `ieee_query`, `ieee_memory` |
-| QEN-MeSH path encoder | `qmesh_encoder` | `qmesh_encoder` |
-| Placement | `placement_mesh`, `placement_ieee`, `placement_qmesh`, `placement_static` | Same as recipe name |
-| MeSH Placement retrieval | `mesh_be`, `mesh_ce` | `retrieval_mesh` |
-| IEEE / QEN-MeSH Placement retrieval | `ieee_be`, `ieee_ce`, `qmesh_be`, `qmesh_ce` | `retrieval_temporal` |
-| Static IEEE retrieval | `static_be`, `static_ce` | `retrieval_static` |
-| IEEE Admission retrieval | `ieee_admission_be`, `ieee_admission_ce` | `retrieval_ieee` |
-| IEEE Admission mining / cache preparation | `ieee_admission_mining`, `ieee_admission_cache` | `retrieval_ieee` |
-
-After filling the configuration and preparing the required inputs:
+The integration test uses synthetic data and a randomly initialized one-layer BERT with the required 768-dimensional interface. It tests execution and checkpoint compatibility, not model quality:
 
 ```bash
-# Inspect the resolved command and training settings without starting training.
-python -m src.train placement_ieee --show
-
-# Run with the recipe's configuration.
-python -m src.train placement_ieee
-
-# Select an alternative configuration file.
-python -m src.train placement_ieee --config path/to/config.json
+python tests/make_fixture.py /tmp/terap-smoke
+cp -r tests /tmp/terap-smoke/
+CUDA_VISIBLE_DEVICES=0 python /tmp/terap-smoke/tests/run_fixture.py
 ```
 
-`--show` also validates required settings, so it requires a filled configuration.
-
-The usual dependency order is retrieval training, candidate/feature preparation, then downstream model training. Admission also requires its query-only and memory branches; Placement uses CE features and encoded taxonomy paths. Recipes consume prepared inputs rather than providing a single command that converts every raw dataset into all training artifacts.
-
-## Working directories and caches
-
-Generated inputs and outputs normally live under `work/<implementation>/`. Temporal retrieval adds an `ieee` or `qmesh` subdirectory. Paths can be controlled with:
-
-- `RELEASE_ROOT`: repository/data root.
-- `RELEASE_WORK`: base directory for working artifacts.
-- `RELEASE_PATHS`: JSON mapping from implementation name to path-variable overrides used in its `common.py`.
-
-For example, to place generated artifacts outside the repository:
-
-```bash
-export RELEASE_WORK=/path/to/work
-```
-
-Admission recipes read prepared arrays from their `data/` directory. Retrieval recipes use task-specific row, token, and graph artifacts; their exact filenames are defined in the corresponding implementation. Raw JSONL files are not interchangeable with these caches.
-
-Placement uses the following layout:
-
-```text
-work/<placement implementation>/cache/s<seed>/
-├── rows.json
-├── inputs.npz
-├── features.npy
-├── path_features.npy
-└── CE_head.pt
-```
-
-`inputs.npz` contains `memory`, `roles`, `gold`, and `hard8`. Rows must contain `target`, explicit `split`, and `gold_indices` (all correct parent indices in the graph candidate bank, including parents outside the shortlist). Convert the raw UID-based `gold` labels using the same candidate index used to build the features. Rows must explicitly identify their split and follow train/valid/test order. Test rows may be included in the cache for later evaluation; gradient training uses only train rows, and checkpoint selection uses only validation rows. Feature arrays must follow the same row order, and memory indices must reference the supplied path-feature bank. Optional `valid_mrr_tail` enables full validation MRR reporting; without it, the cache-based metric is truncated.
-
-## Inference and evaluation
-
-The public API is organized around:
-
-- `src.data.Corpus`: load splits, select taxonomy snapshots, and tokenize text.
-- `src.pipeline.RetrievalEngine`: retrieve and rerank parent candidates.
-- `prepare_admission` / `prepare_placement`: construct task inputs using the selected configuration.
-- `predict_admission` / `predict_placement`: produce scores or parent rankings.
-- `src.evaluation.evaluate_admission` / `evaluate_placement`: evaluate prepared examples.
-- `src.pipeline.end_to_end`: join Admission and Placement predictions by sample ID.
-
-Use the candidate text style in `src.settings.CANDIDATE_STYLES` for the task. In particular, IEEE Admission uses `ieee_paths`, while IEEE Placement uses `name_definition`. Load compatible checkpoints and construct the model with the same architecture used during training. `model_settings` reads the task configuration; IEEE Admission head checkpoints additionally store `model_config`.
-
-Training runs for the configured steps or epochs, without validation-based early stopping. Validation is used to select the checkpoint. Placement text encoders remain frozen. The release contains the main method, including both Admission cascade branches; ablation-specific training and model variants are not included. Retrieval recipes may export test candidates once after training from the selected validation checkpoint for downstream evaluation. Final test evaluation is separate from the training validation loop.
-
-Admission evaluation selects cascade thresholds on validation and transfers them to test, reporting new-concept recall, negative rejection, AUROC, and partial AUROC. Placement reports H@K, R@K, and MRR, averaging queries within each target concept before averaging targets. Full-ranking MRR requires the ranking tail; it should not be confused with MRR@32.
+Use a new destination each time. The test runs the actual preparation and training commands for all six task/dataset combinations and checks that final validation/test results exist. Full experiments use the released datasets and downloaded BERT weights, with the commands above.

@@ -12,7 +12,7 @@ def model_settings(name, dataset=None, phase='inference', config_path=None):
         dataset = dataset or name.removeprefix('placement_')
         task = 'placement'
         recipe = 'placement_' + ('static' if dataset == 'ieee_static' else dataset)
-        fields = {k: k for k in ('dropout')}
+        fields = {k: k for k in ('dropout',)}
     elif name == 'admission':
         settings = settings[dataset]
         if dataset == 'query_only':

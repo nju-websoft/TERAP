@@ -134,7 +134,7 @@ def predict_admission(model, examples, batch_size=128):
 
 @torch.inference_mode()
 def prepare_placement(corpus, rows, retriever, path_encoder, training=False,
-                      be_k=None, top_k=None, slots=None, path_chunk=64, max_paths=None, config_path=None):
+                      be_k=None, top_k=None, slots=None, path_chunk=64, max_paths=None, config_path=None, path_cache=None):
     """Freeze upstream encoders. Training-only gold injection never changes memory."""
     values = _configured_inputs(corpus,"placement","training" if training else "inference",config_path,be_k=be_k,ce_k=top_k,slots=slots,max_paths=max_paths)
     be_k,top_k,slots,max_paths = (values[k] for k in ("be_k","ce_k","slots","max_paths"))
@@ -144,7 +144,7 @@ def prepare_placement(corpus, rows, retriever, path_encoder, training=False,
     path_encoder.eval()
     examples = []
     # Deduplicate path encodings within this preparation call; no stale disk cache.
-    path_cache = {}
+    path_cache = {} if path_cache is None else path_cache
     for row, result in zip(rows, results):
         natural = result['natural']
         chosen = list(natural)
@@ -169,7 +169,7 @@ def prepare_placement(corpus, rows, retriever, path_encoder, training=False,
         roles[:len(texts)] = 0
         _, features = retriever.score_pairs(row, chosen)
         examples.append({'id': sample_id(row), 'row': row, 'candidates': chosen,
-                         'features': features.clone(), 'memory': memory.clone(), 'roles': roles.clone(),
+                         'path_texts': texts, 'features': features.clone(), 'memory': memory.clone(), 'roles': roles.clone(),
                          'gold': torch.tensor([u in gold for u in chosen]),
                          'hard2': torch.tensor([u in natural[:2] and u not in gold for u in chosen]),
                          'hard8': torch.tensor([u in natural[:8] and u not in gold for u in chosen]),
