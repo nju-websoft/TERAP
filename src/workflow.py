@@ -60,7 +60,7 @@ def encode_to_file(encoder, tokens, path, batch=32):
 
 
 def init_configs(destination):
-    """Conservative starting values, not reported experiment settings."""
+    """Generate editable starting configurations for each task."""
     from .recipes.catalog import RECIPES
     values = dict(seed=42, lr=1e-5, epochs=3, steps=1000, switch=0, weak_start=0,
                   projection_start=0, head_lr=1e-4, encoder_lr=1e-5, projection_lr=1e-4,
@@ -115,7 +115,7 @@ def prepare_retrieval(dataset, model):
 
 
 def prepare_ieee_graph(model):
-    """Original 2022 graph self-supervision: leaf holdout, multi-parent positives, lexical negatives."""
+    """2022 graph self-supervision: leaf holdout, multi-parent positives, lexical negatives."""
     from sklearn.feature_extraction.text import TfidfVectorizer
     p = paths('retrieval_ieee')
     p['OUT'].mkdir(parents=True, exist_ok=True)
@@ -183,7 +183,6 @@ def prepare_admission_cache(recipe, cfg_path, model, be, ce, device, batch):
     dataset = 'ieee' if recipe.startswith('ieee') else 'mesh'
     c = corpus(dataset,model,admission=True)
     rows = sum([c.rows('admission',s) for s in ('train','valid','test')],[])
-    # Test is evaluated from raw data later, never needed in a training cache.
     rows = [dict(r, weak=r.get('weak',False)) for r in rows if r['split'] != 'test']
     excluded_names = set()
     if recipe == 'qmesh_encoder':

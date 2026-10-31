@@ -1,10 +1,10 @@
 # TERAP
 
-Research code for taxonomy Admission and Placement. Admission combines a query-only classifier with a taxonomy-memory classifier; Placement retrieves and reranks parent candidates using path memory. The release includes the core models, original task training objectives, dataset preparation, and final evaluation.
+Research code for taxonomy Admission and Placement. Admission combines a query-only classifier with a taxonomy-memory classifier; Placement retrieves and reranks parent candidates using path memory. The repository includes models, training recipes, dataset preparation, and evaluation.
 
 ## Setup
 
-Use Python 3.11 and a CUDA-enabled PyTorch installation on a Linux machine with one visible NVIDIA GPU. Training uses BF16; use a BF16-capable GPU. Preparation and evaluation also accept `--device cpu`, but full training requires CUDA. Model weights, features and checkpoints require additional disk space beyond the dataset; memory requirements depend on the configured candidate counts and batch sizes.
+Use Python 3.11 and a CUDA-enabled PyTorch installation on a Linux machine with one visible NVIDIA GPU. Training requires CUDA and a BF16-capable GPU. Preparation and evaluation also support `--device cpu`. Model weights, features and checkpoints require additional disk space beyond the dataset; memory requirements depend on the configured candidate counts and batch sizes.
 
 From the repository root:
 
@@ -32,7 +32,7 @@ Generate editable starting configurations:
 python -m src.workflow init-configs
 ```
 
-This creates one JSON per task under `work/configs/`. These are **suggested starting parameters, not the settings used to produce the paper's reported results**. They use AdamW, seed 42, retrieval learning rate `1e-5`, downstream head learning rate `1e-4`, and validation-based checkpoint selection. The original unfilled templates remain beside each recipe. Change the generated task files before starting if needed; `init-configs` refuses to overwrite existing configurations.
+This creates one JSON per task under `work/configs/`. They use AdamW, seed 42, retrieval learning rate `1e-5`, downstream head learning rate `1e-4`, and validation-based checkpoint selection. Config templates are stored beside each recipe. Change the generated task files before starting if needed; `init-configs` refuses to overwrite existing configurations.
 
 Run one dataset, or all four:
 
@@ -57,7 +57,7 @@ The runner invokes the existing training recipes in this order:
 4. Prepare Placement CE features and path features; train the Placement model. MeSH and QEN-MeSH use their fine-tuned path encoders; IEEE variants use base BERT path features.
 5. Load validation-selected checkpoints, evaluate held-out data, and write metrics and predictions.
 
-Final outputs are in `work/results/`: `<dataset>_admission.json` and/or `<dataset>_placement.json`, with sibling `.predictions.jsonl` files containing sample IDs and scores or rankings. Admission thresholds are fitted on validation and transferred unchanged to test. Placement metrics average queries within each target before averaging targets. The two tasks have different eligible examples; their predictions can be joined by ID for shared samples, but the supplied splits are not a one-to-one cascade benchmark.
+Final outputs are in `work/results/`: `<dataset>_admission.json` and/or `<dataset>_placement.json`, with sibling `.predictions.jsonl` files containing sample IDs and scores or rankings. Admission thresholds are fitted on validation and transferred unchanged to test. Placement metrics average queries within each target before averaging targets.
 
 The runner stops on an error. Fix the reported cause and use the numbered plan to continue, for example `python -m src.run --dataset mesh --start-at 5`. Keep the same configs and completed artifacts when continuing. For a separate run, set `RELEASE_WORK` to a new directory **before** generating its configurations:
 
@@ -71,7 +71,7 @@ python -m src.run --dataset static
 
 Each training task has a separate config. `training` controls learning rates, optimizer, batch sizes, steps/epochs and validation intervals. `inputs` separates training and inference candidate/memory sizes. The starting configs use BE top-256, CE top-32, and 32 memory slots in both phases. Require `ce_k <= be_k` and `max_paths <= slots`; rebuild caches when changing input sizes, tokenizer or upstream checkpoints. The retrieval recipes retain their own validation ranking cutoffs, independent of downstream memory sizes.
 
-Admission `switch` and IEEE `projection_start` are zero-based update indices; the starting configs use zero to produce fine-tuned encoders for downstream path encoding. `eval_every` counts optimizer steps and `eval_every_epochs` counts epochs. MeSH BE and CE must share seed and epoch count because the CE recipe locates its BE checkpoint by those values. Use validation to tune parameters.
+Admission `switch` and IEEE `projection_start` are zero-based update indices; the starting configs use zero to produce fine-tuned encoders for downstream path encoding. `eval_every` counts optimizer steps and `eval_every_epochs` counts epochs. MeSH BE and CE must share seed and epoch count because the CE recipe locates its BE checkpoint by those values.
 
 You can execute any command printed by `--plan` separately. For example:
 
@@ -125,11 +125,9 @@ TERAP/
 
 Config templates are stored under `src/recipes/<implementation>/configs/`. Running the setup and workflow creates `models/bert/` for downloaded weights and `work/` for editable configs, prepared data, checkpoints and `results/`. These generated directories are ignored by Git and are not included in the repository.
 
-Training preserves each recipe's loss and sampling rules, runs for configured steps/epochs, and selects checkpoints using validation. Test is not evaluated in training validation loops. Retrieval may export final test candidates after selecting a checkpoint. No experiment dashboard, ablation variants, pretrained weights or trained checkpoints are included.
-
 ## Small integration test
 
-The integration test uses synthetic data and a randomly initialized one-layer BERT with the required 768-dimensional interface. It tests execution and checkpoint compatibility, not model quality:
+The integration test uses synthetic data and a randomly initialized one-layer BERT with the required 768-dimensional interface. It checks execution and checkpoint compatibility:
 
 ```bash
 python tests/make_fixture.py /tmp/terap-smoke

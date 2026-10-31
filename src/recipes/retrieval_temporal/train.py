@@ -1,4 +1,4 @@
-"""Dataset-adapted formal BE/CE; validation-only checkpoint selection."""
+"""Train bi-encoder and cross-encoder retrievers."""
 import argparse, collections, concurrent.futures, math, shutil, os
 import numpy as np, torch
 from torch.nn import functional as F

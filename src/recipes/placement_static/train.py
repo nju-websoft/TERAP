@@ -1,5 +1,5 @@
 from ..cache import load_placement_cache
-"""Whole-path CARE with validation-only checkpoint selection."""
+"""Train the whole-path Placement model."""
 import argparse, math
 import numpy as np
 import torch

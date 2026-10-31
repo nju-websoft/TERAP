@@ -1,5 +1,5 @@
 from ..cache import load_placement_cache
-"""Unified CARE experiments with validation-only checkpoint selection."""
+"""Train the MeSH Placement model."""
 import sys, math, io, copy
 import numpy as np
 import torch

@@ -1,4 +1,4 @@
-"""Four-GPU multi-parent placement retriever, trained only on IEEE 2022 graph."""
+"""Multi-parent bi-encoder training on the IEEE 2022 graph."""
 import argparse, os, math
 import numpy as np
 import torch

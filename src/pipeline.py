@@ -135,7 +135,7 @@ def predict_admission(model, examples, batch_size=128):
 @torch.inference_mode()
 def prepare_placement(corpus, rows, retriever, path_encoder, training=False,
                       be_k=None, top_k=None, slots=None, path_chunk=64, max_paths=None, config_path=None, path_cache=None):
-    """Freeze upstream encoders. Training-only gold injection never changes memory."""
+    """Build frozen features and memory; add gold candidates for training."""
     values = _configured_inputs(corpus,"placement","training" if training else "inference",config_path,be_k=be_k,ce_k=top_k,slots=slots,max_paths=max_paths)
     be_k,top_k,slots,max_paths = (values[k] for k in ("be_k","ce_k","slots","max_paths"))
     if training:
@@ -143,7 +143,7 @@ def prepare_placement(corpus, rows, retriever, path_encoder, training=False,
     results = retriever.rank(rows, be_k, top_k, full=not training)
     path_encoder.eval()
     examples = []
-    # Deduplicate path encodings within this preparation call; no stale disk cache.
+    # Deduplicate path encodings within this preparation call.
     path_cache = {} if path_cache is None else path_cache
     for row, result in zip(rows, results):
         natural = result['natural']
@@ -217,7 +217,7 @@ def predict_placement(model, examples, batch_size=128):
 
 def end_to_end(query_model, memory_model, admission_examples, placement_model,
                placement_examples, thresholds, batch_size=128):
-    """Join stages by sample ID; never reuse admission text as placement text."""
+    """Join stages by sample ID using each task's query text."""
     q = predict_admission(query_model, admission_examples, batch_size)
     m = predict_admission(memory_model, admission_examples, batch_size)
     accepted = (q >= thresholds[0]) & (m >= thresholds[1])

@@ -1,4 +1,4 @@
-"""Unchanged low_lr BE/CE architectures for the mask32 dataset."""
+"""Bi-encoder and cross-encoder retrieval models."""
 import argparse,math,collections,time,concurrent.futures
 import numpy as np
 import torch

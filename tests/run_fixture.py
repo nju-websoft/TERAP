@@ -1,4 +1,4 @@
-"""Run all published stages on the disposable fixture; never a benchmark result."""
+"""Run all workflow stages on the synthetic integration fixture."""
 import json,os,subprocess,sys,time
 from pathlib import Path
 root=Path(__file__).resolve().parents[1]
